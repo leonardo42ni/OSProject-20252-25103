@@ -42,3 +42,7 @@ entry("getpid");
 entry("sbrk");
 entry("pause");
 entry("uptime");
+entry("hello");
+entry("memtest");
+entry("pslist");
+entry("settickets");

@@ -5,7 +5,27 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+// Bộ sinh số giả ngẫu nhiên (PRNG) - Thuật toán LCG
+// Biến static để giữ trạng thái của số tiếp theo
+static unsigned int next_random = 1;
 
+int
+random(int max)
+{
+  if (max <= 0) return 0;
+  
+  // Công thức LCG
+  next_random = next_random * 1103515245 + 12345;
+  int res = (unsigned int)(next_random / 65536) % 32768;
+  
+  return res % max; 
+}
+void
+srandom(unsigned int seed)
+{
+  next_random = seed;
+}
+//Ở dưới là mặc định 
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -124,6 +144,8 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+  //Thêm vào ở đây
+  p->tickets = 1; //Mọi tiến trình mặc định có 1 vévé
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -275,7 +297,8 @@ kfork(void)
     return -1;
   }
   np->sz = p->sz;
-
+// THÊM DÒNG NÀY VÀO ĐÂY:
+  np->tickets = p->tickets; // Con thừa kế số vé từ cha
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
 
@@ -424,7 +447,6 @@ kwait(uint64 addr)
 void
 scheduler(void)
 {
-  struct proc *p;
   struct cpu *c = mycpu();
 
   c->proc = 0;
@@ -437,26 +459,44 @@ scheduler(void)
     intr_on();
     intr_off();
 
-    int found = 0;
+    int total_tickets = 0;
+    int counter = 0;
+    int winner = 0;
+    struct proc *p;
+
+    // BƯỚC 1: Tính tổng số vé của tất cả các tiến trình đang sẵn sàng chạy (RUNNABLE)
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
-
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-        found = 1;
+        total_tickets += p->tickets;
       }
       release(&p->lock);
     }
-    if(found == 0) {
-      // nothing to run; stop running on this core until an interrupt.
+
+    // BƯỚC 2: Nếu có vé nào thì bắt đầu quay xổ số
+    if(total_tickets > 0) {
+      winner = random(total_tickets); // Tung xúc xắc chọn con số may mắn
+
+      // BƯỚC 3: Dò xem ai là người trúng giải
+      for(p = proc; p < &proc[NPROC]; p++) {
+        acquire(&p->lock);
+        if(p->state == RUNNABLE) {
+          counter += p->tickets;
+          if(counter > winner) {
+            // Đã tìm thấy người thắng cuộc!
+            p->state = RUNNING;
+            c->proc = p;
+            swtch(&c->context, &p->context);
+
+            c->proc = 0;
+            release(&p->lock);
+            break; // Thoát vòng lặp tìm kiếm để chạy tiếp tiến trình khác
+          }
+        }
+        release(&p->lock);
+      }
+    } else {
+      // Nếu không có tiến trình nào để chạy, nghỉ ngơi
       asm volatile("wfi");
     }
   }

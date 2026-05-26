@@ -24,6 +24,10 @@ int getpid(void);
 char* sys_sbrk(int,int);
 int pause(int);
 int uptime(void);
+int hello(void); 
+int memtest(void);
+int pslist(void);
+int settickets(int);// Khai báo settickets 
 
 // ulib.c
 int stat(const char*, struct stat*);

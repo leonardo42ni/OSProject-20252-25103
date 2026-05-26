@@ -107,3 +107,75 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_hello(void)
+{
+  struct proc *p = myproc();
+  // In ra màn hình console của QEMU (Kernel-mode)
+  printf("kernel: hello() duoc goi boi User (PID %d)\n", p->pid);
+  return 0; // Tra ve 0 cho User-space
+}
+
+// 1. Allocate memory trong Kernel
+uint64
+sys_memtest(void)
+{
+  // kalloc() la ham cap phat 1 trang bo nho (4096 bytes) trong Xv6
+  char *mem = kalloc();
+  
+  if(mem == 0){
+    printf("kernel: Het bo nho\n");
+    return -1;
+  }
+
+  printf("kernel: Da cap phat 4KB tai dia chi: %p\n", mem);
+  
+  // Luon nho giai phong bo nho sau khi test de tranh "Memory Leak"
+  kfree(mem);
+  printf("kernel: Da giai phong bo nho.\n");
+  
+  return 0;
+}
+
+// 2. Liet ke danh sach tien trinh
+// Luu y: Ban can include "spinlock.h" va "proc.h" o dau file neu chua co
+uint64
+sys_pslist(void)
+{
+  // Trong Xv6, moi thu deu nam trong mang 'proc' (Process Table)
+  // Chung ta can dung extern de truy cap mang nay tu proc.c
+  extern struct proc proc[]; 
+  struct proc *p;
+
+  printf("\n--- PID --- NAME --- STATE ---\n");
+  for(p = proc; p < &proc[NPROC]; p++){
+    if(p->state != UNUSED){
+      char *state;
+      if(p->state == SLEEPING) state = "SLEEP";
+      else if(p->state == RUNNABLE) state = "RUNABLE";
+      else if(p->state == RUNNING) state = "RUNNING";
+      else if(p->state == ZOMBIE) state = "ZOMBIE";
+      else state = "UNKNOWN";
+
+      printf("    %d      %s      %s\n", p->pid, p->name, state);
+    }
+  }
+  return 0;
+}
+//25103 nghen
+// Hàm này được gọi khi User-space gọi settickets(n)
+uint64
+sys_settickets(void)
+{
+  int n;
+  argint(0, &n);
+
+  if(n < 1)
+    return -1;
+
+  myproc()->tickets = n;
+  
+  return 0;
+}
+

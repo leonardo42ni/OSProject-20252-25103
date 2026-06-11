@@ -5,8 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
-// Bộ sinh số giả ngẫu nhiên (PRNG) - Thuật toán LCG
-// Biến static để giữ trạng thái của số tiếp theo
+// Hàm random
 static unsigned int next_random = 1;
 
 int

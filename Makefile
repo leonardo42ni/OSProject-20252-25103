@@ -149,6 +149,7 @@ $U/_hello\
 $U/_exercise\
 $U/_testticket\
 $U/_lotterytest\
+$U/_testlottery\
 $U/_pitest
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
